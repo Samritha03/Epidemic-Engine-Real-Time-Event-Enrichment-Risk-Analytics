@@ -1,0 +1,133 @@
+---
+# Simple JupyterLab deployment for Phase 3 visualizations
+# Just change JUPYTER_TOKEN below to set your password
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jupyter-pvc
+  labels:
+    app: jupyter
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jupyter
+  labels:
+    app: jupyter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jupyter
+  template:
+    metadata:
+      labels:
+        app: jupyter
+    spec:
+      containers:
+      - name: jupyter
+        image: jupyter/datascience-notebook:python-3.11
+        ports:
+        - containerPort: 8888
+          name: http
+        env:
+        # === CHANGE THIS PASSWORD ===
+        - name: JUPYTER_TOKEN
+          value: "team-07"  # <-- Change this to your password
+        # ============================
+
+        - name: JUPYTER_ENABLE_LAB
+          value: "yes"
+
+        # Fix Kubernetes service env var conflict
+        - name: JUPYTER_PORT
+          value: "8888"
+
+        # Redirect Jupyter directories to writable locations
+        - name: JUPYTER_RUNTIME_DIR
+          value: "/tmp/jupyter_runtime"
+        - name: JUPYTER_DATA_DIR
+          value: "/tmp/jupyter_data"
+        - name: JUPYTER_CONFIG_DIR
+          value: "/tmp/jupyter_config"
+
+        # Pre-install database connectors
+        command:
+          - "bash"
+          - "-c"
+          - |
+            # Create runtime directories in /tmp (always writable in OpenShift)
+            mkdir -p /tmp/jupyter_runtime /tmp/jupyter_data /tmp/jupyter_config /tmp/.local
+
+            # Install packages to /tmp location
+            pip install --target=/tmp/.local psycopg2-binary pymongo redis plotly
+
+            # Add installed packages to Python path
+            export PYTHONPATH="/tmp/.local:$PYTHONPATH"
+
+            # Create work directory and make it the default notebook dir
+            mkdir -p /tmp/notebooks
+
+            # Start Jupyter with token, using /tmp/notebooks as working directory
+            start-notebook.sh \
+              --NotebookApp.token=$JUPYTER_TOKEN \
+              --NotebookApp.allow_root=True \
+              --NotebookApp.notebook_dir=/tmp/notebooks
+
+        volumeMounts:
+        - name: jupyter-data
+          mountPath: /tmp/notebooks
+
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+
+      volumes:
+      - name: jupyter-data
+        persistentVolumeClaim:
+          claimName: jupyter-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jupyterlab
+  labels:
+    app: jupyter
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8888
+    targetPort: 8888
+    protocol: TCP
+  selector:
+    app: jupyter
+
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: jupyter
+  labels:
+    app: jupyter
+spec:
+  to:
+    kind: Service
+    name: jupyterlab
+  port:
+    targetPort: 8888
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

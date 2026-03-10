@@ -1,0 +1,10 @@
+{
+  "poll_interval_seconds": 60,
+  "lookback_minutes": 5,
+  "volume_threshold": 100,
+  "z_medium": 0.5,
+  "z_high": 1.5,
+  "cooldown_minutes": 10,
+  "top_n_regions": 5
+}
+

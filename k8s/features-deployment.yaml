@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: features
+  labels:
+    app: features
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: features
+  template:
+    metadata:
+      labels:
+        app: features
+    spec:
+      containers:
+      - name: features
+        image: samritha03/features-team07:latest 
+        imagePullPolicy: Always
+        env:
+        - name: DB_HOST
+          value: "postgres"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_NAME
+          value: "epidemic"
+        - name: DB_USER
+          value: "ds551"
+        - name: DB_PASSWORD
+          value: "ds551pw"
+        - name: ALERT_WEBHOOK_URL
+          value: "https://hooks.slack.com/services/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"

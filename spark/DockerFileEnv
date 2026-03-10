@@ -1,0 +1,41 @@
+# Use official Spark image as base (same as partner)
+FROM apache/spark-py:v3.3.0
+
+# Switch to root to install things
+USER root
+
+# Install Python deps (pyspark usually included, but we pin versions)
+RUN pip install --no-cache-dir \
+    pyspark==3.3.0 \
+    py4j==0.10.9.5
+
+# Create app directory
+WORKDIR /app
+
+# Copy environmental Spark application
+# If your file is named spark_env_job.py, we rename it to spark_job.py inside the container
+COPY spark/spark_job_pt2.py /app/spark_job.py
+
+# Install wget and download PostgreSQL JDBC driver
+RUN apt-get update && \
+    apt-get install -y wget && \
+    wget -P /opt/spark/jars/ https://jdbc.postgresql.org/download/postgresql-42.5.0.jar && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create checkpoint directory for streaming
+RUN mkdir -p /tmp/env-checkpoint && chmod -R 777 /tmp/env-checkpoint
+
+# Switch back to non-root spark user (same as partner)
+USER 185
+
+# Spark env
+ENV SPARK_HOME=/opt/spark
+ENV PATH=$PATH:$SPARK_HOME/bin
+
+# Run the application (same pattern as partner)
+CMD ["spark-submit", \
+    "--master", "local[*]", \
+    "--packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.3.0,org.postgresql:postgresql:42.5.0", \
+    "--conf", "spark.sql.streaming.checkpointLocation=/tmp/env-checkpoint", \
+    "/app/spark_job_pt2.py"]
+

@@ -1,0 +1,8 @@
+{
+  "temperature": { "min": -50, "max": 60 },
+  "humidity": { "min": 0, "max": 100 },
+  "symptom_count": { "min": 0 },
+  "region": {
+    "allowed": ["NE", "NW", "SE", "SW"]
+  }
+}
